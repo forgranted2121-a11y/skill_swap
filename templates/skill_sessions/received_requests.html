@@ -76,7 +76,10 @@
                                         
                                         <p class="text-gray-600 mb-2">
                                             <i class="fas fa-arrow-left text-green-500 mr-2"></i>
-                                            From: <span class="font-medium">{{ request.requester.get_full_name|default:request.requester.username }}</span>
+                                            From: <a href="{% url 'accounts:profile_details' request.requester.id %}" 
+                                                     class="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                                {{ request.requester.get_full_name|default:request.requester.username }}
+                                            </a>
                                         </p>
                                         
                                         {% if request.message %}
@@ -131,10 +134,9 @@
                                            onclick="return confirm('Are you sure you want to accept this request?')">
                                             <i class="fas fa-check mr-1"></i>Accept
                                         </a>
-                                        <a href="{% url 'skill_sessions:request_respond' request.pk %}?action=decline" 
-                                           class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
-                                           onclick="return confirm('Are you sure you want to decline this request?')">
-                                            <i class="fas fa-times mr-1"></i>Decline
+                                        <a href="{% url 'skill_sessions:request_reject' request.pk %}" 
+                                           class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
+                                            <i class="fas fa-times mr-1"></i>Reject
                                         </a>
                                     {% elif request.status == 'accepted' and request.session and request.session.status == 'cancelled' %}
                                         <a href="{% url 'skill_sessions:schedule_session' request.id %}" 

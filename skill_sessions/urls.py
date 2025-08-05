@@ -14,6 +14,7 @@ urlpatterns = [
     path('requests/<int:pk>/', views.RequestDetailView.as_view(), name='request_detail'),
     path('requests/<int:pk>/respond/', views.RequestResponseView.as_view(), name='request_respond'),
     path('requests/<int:pk>/cancel/', views.cancel_request, name='request_cancel'),
+    path('requests/<int:pk>/reject/', views.reject_request, name='request_reject'),
     
     # New comprehensive request management
     path('requests/management/', views.session_requests_management, name='request_management'),

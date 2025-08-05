@@ -76,7 +76,10 @@
                                         
                                         <p class="text-gray-600 mb-2">
                                             <i class="fas fa-arrow-right text-blue-500 mr-2"></i>
-                                            To: <span class="font-medium">{{ request.recipient.get_full_name|default:request.recipient.username }}</span>
+                                            To: <a href="{% url 'accounts:profile_details' request.recipient.id %}" 
+                                                   class="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                                {{ request.recipient.get_full_name|default:request.recipient.username }}
+                                            </a>
                                         </p>
                                         
                                         {% if request.message %}
