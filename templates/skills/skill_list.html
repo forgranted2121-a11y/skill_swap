@@ -392,9 +392,12 @@
     
     
     // Category dropdown change handler
-    document.getElementById('id_category').addEventListener('change', function() {
-        const categoryId = this.value;
-        const skillSelect = document.getElementById('id_skill');
+    document.addEventListener('DOMContentLoaded', function() {
+        const categorySelect = document.getElementById('id_category');
+        if (categorySelect) {
+            categorySelect.addEventListener('change', function() {
+                const categoryId = this.value;
+                const skillSelect = document.getElementById('id_skill');
         
         if (categoryId) {
             skillSelect.disabled = true;
@@ -414,15 +417,22 @@
                     skillSelect.innerHTML = '<option value="">Error loading skills</option>';
                     skillSelect.disabled = false;
                 });
-        } else {
-            skillSelect.innerHTML = '<option value="">Select Skill...</option>';
-            skillSelect.disabled = true;
+                } else {
+                    skillSelect.innerHTML = '<option value="">Select Skill...</option>';
+                    skillSelect.disabled = true;
+                }
+            });
         }
     });
     
     // Auto-submit form when sort option changes
-    document.querySelector('select[name="sort"]').addEventListener('change', function() {
-        this.closest('form').submit();
+    document.addEventListener('DOMContentLoaded', function() {
+        const sortSelect = document.querySelector('select[name="sort"]');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', function() {
+                this.closest('form').submit();
+            });
+        }
     });
     
     // Handle teacher request

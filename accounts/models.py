@@ -69,6 +69,38 @@ class UserProfile(models.Model):
         fields = ['university_email', 'department', 'branch', 'year', 'bio', 'availability']
         completed = sum(1 for field in fields if getattr(self, field))
         return int((completed / len(fields)) * 100)
+    
+    def get_dynamic_sessions_taught(self):
+        """Calculate sessions taught dynamically from actual session data"""
+        from skill_sessions.models import SkillSwapSession
+        return SkillSwapSession.objects.filter(
+            teacher=self.user,
+            status='completed'
+        ).count()
+    
+    def get_dynamic_sessions_learned(self):
+        """Calculate sessions learned dynamically from actual session data"""
+        from skill_sessions.models import SkillSwapSession
+        return SkillSwapSession.objects.filter(
+            learner=self.user,
+            status='completed'
+        ).count()
+    
+    def get_dynamic_average_rating_as_teacher(self):
+        """Calculate average rating as teacher dynamically"""
+        from skill_sessions.models import SessionReview
+        from django.db.models import Avg
+        reviews = SessionReview.objects.filter(session__teacher=self.user)
+        avg_rating = reviews.aggregate(Avg('teacher_rating'))['teacher_rating__avg']
+        return round(avg_rating, 1) if avg_rating else 0.0
+    
+    def get_dynamic_average_rating_as_learner(self):
+        """Calculate average rating as learner dynamically"""
+        from skill_sessions.models import SessionReview
+        from django.db.models import Avg
+        reviews = SessionReview.objects.filter(session__learner=self.user)
+        avg_rating = reviews.aggregate(Avg('learner_rating'))['learner_rating__avg']
+        return round(avg_rating, 1) if avg_rating else 0.0
 
 class Notification(models.Model):
     NOTIFICATION_TYPES = [
