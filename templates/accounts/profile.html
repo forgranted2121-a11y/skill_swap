@@ -186,16 +186,16 @@
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-gray-600">Sessions Taught</span>
-                            <span class="font-semibold text-purple-600">{{ profile.total_sessions_taught }}</span>
+                            <span class="font-semibold text-purple-600">{{ profile.get_dynamic_sessions_taught }}</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span class="text-gray-600">Sessions Learned</span>
-                            <span class="font-semibold text-orange-600">{{ profile.total_sessions_learned }}</span>
+                            <span class="font-semibold text-orange-600">{{ profile.get_dynamic_sessions_learned }}</span>
                         </div>
-                        {% if profile.average_rating_as_teacher > 0 %}
+                        {% if profile.get_dynamic_average_rating_as_teacher > 0 %}
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-600">Teaching Rating</span>
-                                <span class="font-semibold text-yellow-600">{{ profile.average_rating_as_teacher|floatformat:1 }}/5 ⭐</span>
+                                <span class="font-semibold text-yellow-600">{{ profile.get_dynamic_average_rating_as_teacher|floatformat:1 }}/5 ⭐</span>
                             </div>
                         {% endif %}
                     </div>

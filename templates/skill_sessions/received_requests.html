@@ -140,8 +140,8 @@
                                         </a>
                                     {% elif request.status == 'accepted' and request.session and request.session.status == 'cancelled' %}
                                         <a href="{% url 'skill_sessions:schedule_session' request.id %}" 
-                                           class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors">
-                                            <i class="fas fa-calendar-plus mr-1"></i>Schedule Session
+                                           class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors">
+                                            <i class="fas fa-calendar-alt mr-1"></i>Reschedule Session
                                         </a>
                                     {% endif %}
                                 </div>
