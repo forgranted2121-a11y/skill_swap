@@ -28,40 +28,22 @@
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-paper-plane text-blue-600 text-2xl"></i>
                 </div>
-                <div class="text-3xl font-bold text-gray-800 mb-2">{{ requests.count }}</div>
-                <div class="text-gray-600">Total Requests</div>
+                <div class="text-3xl font-bold text-gray-800 mb-2">{{ total_sent_requests }}</div>
+                <div class="text-gray-600">Total Sent Requests</div>
             </div>
             <div class="bg-white rounded-xl p-6 shadow-lg text-center">
                 <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-clock text-yellow-600 text-2xl"></i>
                 </div>
-                <div class="text-3xl font-bold text-gray-800 mb-2">
-                    {% regroup requests by status as grouped_requests %}
-                    {% for group in grouped_requests %}
-                        {% if group.grouper == 'pending' %}
-                            {{ group.list|length }}
-                        {% endif %}
-                    {% empty %}
-                        0
-                    {% endfor %}
-                </div>
-                <div class="text-gray-600">Pending Requests</div>
+                <div class="text-3xl font-bold text-gray-800 mb-2">{{ sent_pending_count }}</div>
+                <div class="text-gray-600">Pending Sent</div>
             </div>
             <div class="bg-white rounded-xl p-6 shadow-lg text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-check-circle text-green-600 text-2xl"></i>
                 </div>
-                <div class="text-3xl font-bold text-gray-800 mb-2">
-                    {% regroup requests by status as grouped_requests %}
-                    {% for group in grouped_requests %}
-                        {% if group.grouper == 'accepted' %}
-                            {{ group.list|length }}
-                        {% endif %}
-                    {% empty %}
-                        0
-                    {% endfor %}
-                </div>
-                <div class="text-gray-600">Accepted Requests</div>
+                <div class="text-3xl font-bold text-gray-800 mb-2">{{ sent_accepted_count }}</div>
+                <div class="text-gray-600">Accepted Sent</div>
             </div>
         </div>
 
@@ -117,10 +99,13 @@
                                             </span>
                                         </div>
                                         
-                                        <p class="text-gray-600 mb-2">
-                                            <i class="fas fa-arrow-right text-blue-500 mr-2"></i>
-                                            To: <span class="font-medium">{{ request.recipient.get_full_name|default:request.recipient.username }}</span>
-                                        </p>
+                                                                <p class="text-gray-600 mb-2">
+                            <i class="fas fa-arrow-right text-blue-500 mr-2"></i>
+                            To: <a href="{% url 'accounts:profile_details' request.recipient.id %}" 
+                                   class="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                                {{ request.recipient.get_full_name|default:request.recipient.username }}
+                            </a>
+                        </p>
                                         
                                         {% if request.message %}
                                             <p class="text-gray-700 text-sm bg-gray-50 p-3 rounded-lg mb-3">
@@ -158,8 +143,7 @@
                                     
                                     {% if request.status == 'pending' %}
                                         <a href="{% url 'skill_sessions:request_cancel' request.pk %}" 
-                                           class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
-                                           onclick="return confirm('Are you sure you want to cancel this request?')">
+                                           class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
                                             <i class="fas fa-times mr-1"></i>Cancel
                                         </a>
                                     {% endif %}

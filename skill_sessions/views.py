@@ -11,10 +11,84 @@ from django.views.decorators.http import require_http_methods
 from django.core.exceptions import PermissionDenied
 
 from .models import SkillSwapRequest, SkillSwapSession, SessionReview
-from .forms import SkillSwapRequestForm, RequestResponseForm, SessionScheduleForm, SessionReviewForm
+from .forms import SkillSwapRequestForm, RequestResponseForm, SessionScheduleForm, SessionReviewForm, RequestRejectionForm
 from skills.models import OfferedSkill, DesiredSkill
 
 # Create your views here.
+
+def get_user_statistics(user):
+    """
+    Get dynamic statistics for a user that can be used across all pages
+    """
+    from django.db.models import Q
+    
+    # Sessions statistics
+    all_sessions = SkillSwapSession.objects.filter(
+        Q(teacher=user) | Q(learner=user)
+    )
+    
+    total_sessions = all_sessions.count()
+    upcoming_sessions_count = all_sessions.filter(
+        status='scheduled',
+        scheduled_date__gte=timezone.now()
+    ).count()
+    completed_sessions_count = all_sessions.filter(status='completed').count()
+    cancelled_sessions_count = all_sessions.filter(status='cancelled').count()
+    in_progress_sessions_count = all_sessions.filter(status='in_progress').count()
+    
+    # Requests statistics
+    sent_requests = SkillSwapRequest.objects.filter(requester=user)
+    received_requests = SkillSwapRequest.objects.filter(recipient=user)
+    
+    # Sent requests breakdown
+    sent_pending = sent_requests.filter(status='pending').count()
+    sent_accepted = sent_requests.filter(status='accepted').count()
+    sent_declined = sent_requests.filter(status='declined').count()
+    sent_cancelled = sent_requests.filter(status='cancelled').count()
+    
+    # Received requests breakdown
+    received_pending = received_requests.filter(status='pending').count()
+    received_accepted = received_requests.filter(status='accepted').count()
+    received_declined = received_requests.filter(status='declined').count()
+    received_cancelled = received_requests.filter(status='cancelled').count()
+    
+    # Teaching/Learning breakdown
+    teaching_sessions = all_sessions.filter(teacher=user)
+    learning_sessions = all_sessions.filter(learner=user)
+    
+    return {
+        # Session statistics
+        'total_sessions': total_sessions,
+        'upcoming_sessions_count': upcoming_sessions_count,
+        'completed_sessions_count': completed_sessions_count,
+        'cancelled_sessions_count': cancelled_sessions_count,
+        'in_progress_sessions_count': in_progress_sessions_count,
+        
+        # Teaching/Learning statistics
+        'teaching_sessions_count': teaching_sessions.count(),
+        'learning_sessions_count': learning_sessions.count(),
+        'teaching_completed_count': teaching_sessions.filter(status='completed').count(),
+        'learning_completed_count': learning_sessions.filter(status='completed').count(),
+        
+        # Request statistics - Sent
+        'total_sent_requests': sent_requests.count(),
+        'sent_pending_count': sent_pending,
+        'sent_accepted_count': sent_accepted,
+        'sent_declined_count': sent_declined,
+        'sent_cancelled_count': sent_cancelled,
+        
+        # Request statistics - Received
+        'total_received_requests': received_requests.count(),
+        'received_pending_count': received_pending,
+        'received_accepted_count': received_accepted,
+        'received_declined_count': received_declined,
+        'received_cancelled_count': received_cancelled,
+        
+        # Combined pending requests
+        'pending_requests_count': sent_pending + received_pending,
+        'total_requests_count': sent_requests.count() + received_requests.count(),
+    }
+
 
 class RequestListView(LoginRequiredMixin, ListView):
     model = SkillSwapRequest
@@ -25,6 +99,11 @@ class RequestListView(LoginRequiredMixin, ListView):
         return SkillSwapRequest.objects.filter(
             requester=self.request.user
         ).select_related('recipient', 'offered_skill')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(get_user_statistics(self.request.user))
+        return context
 
 
 class SentRequestListView(LoginRequiredMixin, ListView):
@@ -36,6 +115,11 @@ class SentRequestListView(LoginRequiredMixin, ListView):
         return SkillSwapRequest.objects.filter(
             requester=self.request.user
         ).select_related('recipient', 'offered_skill')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(get_user_statistics(self.request.user))
+        return context
 
 
 class ReceivedRequestListView(LoginRequiredMixin, ListView):
@@ -47,6 +131,11 @@ class ReceivedRequestListView(LoginRequiredMixin, ListView):
         return SkillSwapRequest.objects.filter(
             recipient=self.request.user
         ).select_related('requester', 'offered_skill')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(get_user_statistics(self.request.user))
+        return context
 
 
 class CreateRequestView(LoginRequiredMixin, CreateView):
@@ -158,26 +247,42 @@ class SendRequestView(LoginRequiredMixin, CreateView):
 
 class RequestDetailView(LoginRequiredMixin, DetailView):
     model = SkillSwapRequest
+    template_name = 'skill_sessions/request_detail.html'
+    context_object_name = 'request'
     
     def get_queryset(self):
         return SkillSwapRequest.objects.filter(
-            requester=self.request.user
-        ) | SkillSwapRequest.objects.filter(
-            recipient=self.request.user
-        )
+            models.Q(requester=self.request.user) | models.Q(recipient=self.request.user)
+        ).select_related('requester', 'recipient', 'offered_skill__skill', 'desired_skill__skill')
     
-    def get(self, request, *args, **kwargs):
-        # Redirect to the other user's profile instead of showing request detail
-        request_obj = self.get_object()
-        if request_obj.requester == request.user:
-            # If current user is the requester, show recipient's profile
-            profile_user = request_obj.recipient
-        else:
-            # If current user is the recipient, show requester's profile
-            profile_user = request_obj.requester
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        request_obj = self.object
         
-        from django.shortcuts import redirect
-        return redirect('accounts:profile_details', user_id=profile_user.id)
+        # Get the other user in the request
+        if request_obj.requester == self.request.user:
+            other_user = request_obj.recipient
+            context['is_requester'] = True
+        else:
+            other_user = request_obj.requester
+            context['is_requester'] = False
+        
+        context['other_user'] = other_user
+        
+        # Get related session if exists
+        try:
+            context['related_session'] = request_obj.session
+        except:
+            context['related_session'] = None
+            
+        # Get user statistics
+        context.update(get_user_statistics(self.request.user))
+        
+        # Add rejection form for pending requests
+        if request_obj.status == 'pending':
+            context['rejection_form'] = RequestRejectionForm()
+            
+        return context
 
 
 class RequestResponseView(LoginRequiredMixin, UpdateView):
@@ -285,24 +390,96 @@ class RequestResponseView(LoginRequiredMixin, UpdateView):
 @login_required
 def cancel_request(request, pk):
     request_obj = get_object_or_404(SkillSwapRequest, pk=pk, requester=request.user)
-    request_obj.status = 'cancelled'
-    request_obj.save()
     
-    # Create notification for the recipient
-    from accounts.models import Notification
-    Notification.objects.create(
-        recipient=request_obj.recipient,
-        notification_type='request_declined', 
-        title='Request Cancelled',
-        message=f'{request.user.get_full_name() or request.user.username} cancelled their skill swap request for {request_obj.offered_skill.skill.name}.',
-        related_user=request.user,
-        related_object_id=request_obj.id
-    )
+    if request.method == 'POST':
+        form = RequestRejectionForm(request.POST)
+        if form.is_valid():
+            request_obj.status = 'cancelled'
+            # Store rejection reason and message
+            reason = form.cleaned_data['reason']
+            message = form.cleaned_data['message']
+            
+            # Create a comprehensive response message
+            reason_text = dict(form.fields['reason'].choices)[reason]
+            full_message = f"Reason: {reason_text}"
+            if message:
+                full_message += f"\nDetails: {message}"
+            
+            request_obj.response_message = full_message
+            request_obj.responded_at = timezone.now()
+            request_obj.save()
+            
+            # Create notification for the recipient
+            from accounts.models import Notification
+            Notification.objects.create(
+                recipient=request_obj.recipient,
+                notification_type='request_cancelled',
+                title='Request Cancelled',
+                message=f'{request.user.get_full_name() or request.user.username} has cancelled their request to learn {request_obj.offered_skill.skill.name}. {reason_text}',
+                related_user=request.user,
+                related_object_id=request_obj.id
+            )
+            
+            from django.contrib import messages
+            messages.success(request, 'Request cancelled successfully!')
+            return redirect('skill_sessions:request_list')
+    else:
+        form = RequestRejectionForm()
     
-    from django.contrib import messages
-    messages.success(request, 'Request cancelled successfully.')
+    context = {
+        'form': form,
+        'request': request_obj,
+        'action': 'cancel'
+    }
+    return render(request, 'skill_sessions/request_rejection.html', context)
+
+
+@login_required
+def reject_request(request, pk):
+    """Handle request rejection with reason"""
+    request_obj = get_object_or_404(SkillSwapRequest, pk=pk, recipient=request.user)
     
-    return redirect('core:requests')
+    if request.method == 'POST':
+        form = RequestRejectionForm(request.POST)
+        if form.is_valid():
+            request_obj.status = 'declined'
+            # Store rejection reason and message
+            reason = form.cleaned_data['reason']
+            message = form.cleaned_data['message']
+            
+            # Create a comprehensive response message
+            reason_text = dict(form.fields['reason'].choices)[reason]
+            full_message = f"Reason: {reason_text}"
+            if message:
+                full_message += f"\nDetails: {message}"
+            
+            request_obj.response_message = full_message
+            request_obj.responded_at = timezone.now()
+            request_obj.save()
+            
+            # Create notification for the requester
+            from accounts.models import Notification
+            Notification.objects.create(
+                recipient=request_obj.requester,
+                notification_type='request_declined',
+                title='Request Declined',
+                message=f'{request.user.get_full_name() or request.user.username} has declined your request to learn {request_obj.offered_skill.skill.name}. {reason_text}',
+                related_user=request.user,
+                related_object_id=request_obj.id
+            )
+            
+            from django.contrib import messages
+            messages.success(request, 'Request declined with reason!')
+            return redirect('skill_sessions:received_requests')
+    else:
+        form = RequestRejectionForm()
+    
+    context = {
+        'form': form,
+        'request': request_obj,
+        'action': 'reject'
+    }
+    return render(request, 'skill_sessions/request_rejection.html', context)
 
 
 class SessionListView(LoginRequiredMixin, ListView):
@@ -365,15 +542,19 @@ class SessionHistoryView(LoginRequiredMixin, ListView):
     context_object_name = 'sessions'
     
     def get_queryset(self):
+        # Include completed, cancelled, and past sessions
+        from django.db.models import Q
         return SkillSwapSession.objects.filter(
-            scheduled_date__lt=timezone.now()
+            Q(teacher=self.request.user) | Q(learner=self.request.user)
         ).filter(
-            teacher=self.request.user
-        ) | SkillSwapSession.objects.filter(
-            scheduled_date__lt=timezone.now()
-        ).filter(
-            learner=self.request.user
-        )
+            Q(status__in=['completed', 'cancelled', 'no_show']) |
+            Q(scheduled_date__lt=timezone.now(), status='scheduled')
+        ).select_related('teacher', 'learner', 'skill').order_by('-scheduled_date')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(get_user_statistics(self.request.user))
+        return context
 
 
 class SessionDetailView(LoginRequiredMixin, DetailView):
@@ -870,16 +1051,8 @@ def my_sessions_view(request):
     # Get completed sessions
     completed_sessions = all_sessions.filter(status='completed')
     
-    # Get pending requests count
-    pending_requests_count = SkillSwapRequest.objects.filter(
-        recipient=request.user,
-        status='pending'
-    ).count()
-    
-    # Calculate stats
-    total_sessions = all_sessions.count()
-    upcoming_sessions_count = upcoming_sessions.count()
-    completed_sessions_count = completed_sessions.count()
+    # Get dynamic statistics
+    user_stats = get_user_statistics(request.user)
     
     # Generate recent activities (mock data - you can enhance this)
     recent_activities = []
@@ -927,13 +1100,12 @@ def my_sessions_view(request):
         'all_sessions': all_sessions,
         'upcoming_sessions': upcoming_sessions,
         'completed_sessions': completed_sessions,
-        'total_sessions': total_sessions,
-        'upcoming_sessions_count': upcoming_sessions_count,
-        'completed_sessions_count': completed_sessions_count,
-        'pending_requests_count': pending_requests_count,
         'recent_activities': recent_activities,
         'now': timezone.now(),
     }
+    
+    # Add dynamic statistics
+    context.update(user_stats)
     
     return render(request, 'skill_sessions/my_sessions.html', context)
 

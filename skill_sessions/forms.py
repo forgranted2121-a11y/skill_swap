@@ -79,6 +79,45 @@ class RequestResponseForm(forms.Form):
     )
 
 
+class RequestRejectionForm(forms.Form):
+    """Form for rejecting or cancelling requests with a reason"""
+    REJECTION_REASONS = [
+        ('not_interested', 'Not interested in this skill anymore'),
+        ('scheduling_conflict', 'Scheduling conflict'),
+        ('too_many_requests', 'Already have too many requests'),
+        ('skill_level_mismatch', 'Skill level doesn\'t match my needs'),
+        ('prefer_different_format', 'Prefer different learning format'),
+        ('personal_reasons', 'Personal reasons'),
+        ('other', 'Other (please specify)'),
+    ]
+    
+    reason = forms.ChoiceField(
+        choices=REJECTION_REASONS,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Reason for rejection/cancellation"
+    )
+    
+    message = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'placeholder': 'Please provide additional details (optional)...',
+            'class': 'form-textarea'
+        }),
+        required=False,
+        label="Additional message"
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        reason = cleaned_data.get('reason')
+        message = cleaned_data.get('message')
+        
+        if reason == 'other' and not message:
+            raise forms.ValidationError('Please provide additional details when selecting "Other".')
+        
+        return cleaned_data
+
+
 class SessionScheduleForm(forms.ModelForm):
     """Form for scheduling sessions"""
     
